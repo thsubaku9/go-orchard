@@ -3,6 +3,7 @@ package task
 import (
 	"time"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/google/uuid"
 )
 
@@ -33,7 +34,7 @@ type Task struct {
 	Image         string
 	Memory        int
 	Disk          int
-	ExposedPorts  map[int]struct{}
+	ExposedPorts  nat.PortSet
 	PortBindings  map[string]string
 	RestartPolicy string
 	StartTime     time.Time
