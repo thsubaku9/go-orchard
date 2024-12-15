@@ -19,8 +19,8 @@ type Config struct {
 }
 
 const (
-	No             RestartPolicy = "no"
-	Always         RestartPolicy = "always"
+	NO             RestartPolicy = "no"
+	ALWAYS         RestartPolicy = "always"
 	UNLESS_STOPPED RestartPolicy = "unless-stopped"
 	ON_FAILURE     RestartPolicy = "on-failure"
 )
