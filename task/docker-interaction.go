@@ -34,6 +34,7 @@ func (d *Docker) Run() DockerResult {
 		Tty:          false,
 		Env:          d.Config.Env,
 		ExposedPorts: d.Config.ExposedPorts,
+		Cmd:          []string{"sh"},
 	}
 
 	hc := container.HostConfig{

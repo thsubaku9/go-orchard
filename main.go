@@ -5,20 +5,21 @@ import (
 	"log"
 	"orchard/task"
 	"os"
+	"time"
 
 	"github.com/docker/engine-api/client"
 	"github.com/ttacon/chalk"
 )
 
-var red func(string) string = chalk.Red.NewStyle().WithBackground(chalk.Black).WithTextStyle(chalk.Bold).Style
+var red func(string) string = chalk.Red.NewStyle().WithTextStyle(chalk.Bold).Style
+var green func(string) string = chalk.Green.NewStyle().WithTextStyle(chalk.Italic).Style
 
 func createContainer() (*task.Docker, *task.DockerResult) {
 	c := task.Config{
 		Name:  "test-container-1",
-		Image: "postgres:13",
+		Image: "docker.io/library/alpine:latest",
 		Env: []string{
-			"POSTGRES_USER=cube",
-			"POSTGRES_PASSWORD=secret",
+			"SAMPLE_USER=cube",
 		},
 	}
 
@@ -50,13 +51,19 @@ func purgeContainer(d *task.Docker, containerId string) *task.DockerResult {
 		return nil
 	}
 
-	log.Println(red(fmt.Sprintf("Container %s has been stopped and removed\n", res.ContainerId)))
+	log.Println(green(fmt.Sprintf("Container %s has been stopped and removed", res.ContainerId)))
 	return &res
 }
 
 func main() {
 
 	log.Printf("Container being created\n")
+	if os.Getenv("DOCKER_HOST") == "" {
+		os.Setenv("DOCKER_HOST", "unix:///Users/kernel/.docker/run/docker.sock")
+
+	} else if os.Getenv("DOCKER_API_VERSION") == "" {
+		os.Setenv("DOCKER_API_VERSION", "1.45")
+	}
 
 	dockerTask, dockerResult := createContainer()
 
@@ -64,11 +71,8 @@ func main() {
 		log.Println(red(fmt.Sprintf("Create container has err : %v", dockerResult.Error)))
 		os.Exit(1)
 	}
+	time.Sleep(time.Second * 8)
 
-	var res string
-	fmt.Println("Press anything to stop container")
-	fmt.Scan(res)
-
-	fmt.Printf("stopping container %s\n", dockerResult.ContainerId)
+	fmt.Printf("Stopping container %s\n", dockerResult.ContainerId)
 	_ = purgeContainer(dockerTask, dockerResult.ContainerId)
 }
