@@ -39,6 +39,15 @@ type Task struct {
 	RestartPolicy string
 	StartTime     time.Time
 	FinishTime    time.Time
+	ContainerId   string
+}
+
+func NewConfig(t *Task) Config {
+	if t == nil {
+		return Config{}
+	}
+
+	return Config{}
 }
 
 type TaskEvent struct {

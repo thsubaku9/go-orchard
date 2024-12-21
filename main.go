@@ -7,7 +7,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/docker/engine-api/client"
 	"github.com/ttacon/chalk"
 )
 
@@ -23,16 +22,12 @@ func createContainer() (*task.Docker, *task.DockerResult) {
 		},
 	}
 
-	dc, err := client.NewEnvClient()
+	d, err := task.NewDocker(c)
 
 	if err != nil {
 		log.Printf("Error creating client %v\n", err)
 		return nil, nil
 	}
-
-	d := task.Docker{
-		Client: dc,
-		Config: c}
 
 	result := d.Run()
 	if result.Error != nil {
@@ -40,7 +35,7 @@ func createContainer() (*task.Docker, *task.DockerResult) {
 		return nil, nil
 	}
 	log.Printf("Container %s is running with config %v\n", result.ContainerId, c)
-	return &d, &result
+	return d, &result
 }
 
 func purgeContainer(d *task.Docker, containerId string) *task.DockerResult {

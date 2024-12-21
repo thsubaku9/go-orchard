@@ -18,6 +18,20 @@ type Docker struct {
 	Config Config
 }
 
+func NewDocker(c Config) (*Docker, error) {
+	dockerClient, err := client.NewEnvClient()
+
+	if err != nil {
+		log.Printf("Error creating client %v\n", err)
+		return nil, err
+	}
+
+	return &Docker{
+		Client: dockerClient,
+		Config: c,
+	}, nil
+}
+
 func (d *Docker) Run() DockerResult {
 	ctx := context.Background()
 	reader, err := d.Client.ImagePull(ctx, d.Config.Image, types.ImagePullOptions{})
