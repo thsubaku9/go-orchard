@@ -25,8 +25,32 @@ func (w *Worker) RunTask() {
 	fmt.Println("I will start or stop a task")
 }
 
-func (w *Worker) StartTask() {
-	fmt.Println("I will start a task")
+func (w *Worker) AddTask(t task.Task) {
+	w.Queue.Enqueue(t)
+}
+
+func (w *Worker) StartTask(t task.Task) task.DockerResult {
+	t.StartTime = time.Now().UTC()
+
+	d, err := task.NewDocker(task.NewConfig(&t))
+
+	if err != nil {
+		log.Printf("Error creating client to stop task")
+	}
+
+	res := d.Run()
+
+	if res.Error != nil {
+		log.Printf("Err running task %v: %v\n", t.ID, res.Error)
+		t.State = task.Failed
+	} else {
+		t.ContainerId = res.ContainerId
+		t.State = task.Running
+	}
+
+	w.Db[t.ID] = &t
+	return res
+
 }
 
 func (w *Worker) StopTask(t task.Task) task.DockerResult {

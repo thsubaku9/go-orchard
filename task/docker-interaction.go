@@ -4,7 +4,6 @@ import (
 	"context"
 	"io"
 	"log"
-	"math"
 	"os"
 
 	"github.com/docker/docker/pkg/stdcopy"
@@ -55,7 +54,7 @@ func (d *Docker) Run() DockerResult {
 		RestartPolicy: container.RestartPolicy{Name: string(d.Config.RestartPolicy)},
 		Resources: container.Resources{
 			Memory:    d.Config.Memory,
-			CPUShares: int64(d.Config.Cpu * math.Pow(10, 9)), // todok -> this was supposed to be nanoCpus
+			CPUShares: int64(d.Config.Cpu),
 		},
 		PublishAllPorts: true,
 	}

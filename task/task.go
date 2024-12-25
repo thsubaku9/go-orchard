@@ -40,6 +40,7 @@ type Task struct {
 	StartTime     time.Time
 	FinishTime    time.Time
 	ContainerId   string
+	TaskConfig    Config
 }
 
 func NewConfig(t *Task) Config {
@@ -47,7 +48,7 @@ func NewConfig(t *Task) Config {
 		return Config{}
 	}
 
-	return Config{}
+	return t.TaskConfig
 }
 
 type TaskEvent struct {
