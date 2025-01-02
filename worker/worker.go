@@ -109,3 +109,13 @@ func (w *Worker) StopTask(t task.Task) task.DockerResult {
 	log.Printf("Stopped and removed container %v for task %v\n", t.ContainerId, t.ID)
 	return res
 }
+
+func (w *Worker) ListTasks() []task.DockerResult {
+	// todo
+	return nil
+}
+
+func (w *Worker) GetTask(containerId string) task.DockerInspectResponse {
+	// todo
+	return task.DockerInspectResponse{}
+}
