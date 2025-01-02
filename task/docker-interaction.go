@@ -40,6 +40,7 @@ func (d *Docker) Run() DockerResult {
 		return DockerResult{Error: err}
 	}
 
+	defer reader.Close()
 	io.Copy(os.Stdout, reader)
 
 	cc := container.Config{
@@ -71,8 +72,6 @@ func (d *Docker) Run() DockerResult {
 		return DockerResult{Error: err}
 	}
 
-	// d.Config.Runtime.ContainerID = res.ID
-
 	out, err := d.Client.ContainerLogs(ctx, res.ID, types.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
 
 	if err != nil {
@@ -80,6 +79,7 @@ func (d *Docker) Run() DockerResult {
 		return DockerResult{Error: err}
 	}
 
+	defer out.Close()
 	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 	return DockerResult{ContainerId: res.ID, Action: "start", Result: "success"}
 }

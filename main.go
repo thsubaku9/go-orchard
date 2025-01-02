@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"log"
 	"orchard/task"
+	"orchard/worker"
 	"os"
 	"time"
 
+	"github.com/golang-collections/collections/queue"
+	"github.com/google/uuid"
 	"github.com/ttacon/chalk"
 )
 
@@ -50,16 +53,18 @@ func purgeContainer(d *task.Docker, containerId string) *task.DockerResult {
 	return &res
 }
 
-func main() {
-
-	log.Printf("Container being created\n")
+func set_docker_envars() {
 	if os.Getenv("DOCKER_HOST") == "" {
 		os.Setenv("DOCKER_HOST", "unix:///Users/kernel/.docker/run/docker.sock")
 
-	} else if os.Getenv("DOCKER_API_VERSION") == "" {
+	}
+	if os.Getenv("DOCKER_API_VERSION") == "" {
 		os.Setenv("DOCKER_API_VERSION", "1.45")
 	}
-
+}
+func docker_main() {
+	set_docker_envars()
+	log.Printf("Container being created\n")
 	dockerTask, dockerResult := createContainer()
 
 	if dockerResult.Error != nil {
@@ -70,4 +75,50 @@ func main() {
 
 	fmt.Printf("Stopping container %s\n", dockerResult.ContainerId)
 	_ = purgeContainer(dockerTask, dockerResult.ContainerId)
+}
+
+func worker_main() {
+	set_docker_envars()
+	w := worker.Worker{
+		Queue: *queue.New(),
+		Db:    make(map[uuid.UUID]*task.Task),
+	}
+
+	t := task.Task{
+		ID:    uuid.New(),
+		Name:  "test-container-1",
+		State: task.Scheduled,
+		Image: "strm/helloworld-http",
+		TaskConfig: task.Config{
+			Name:  "test-container-1",
+			Image: "docker.io/strm/helloworld-http:latest",
+			Env:   []string{},
+		},
+	}
+
+	fmt.Println("starting task")
+	w.AddTask(t)
+	result := w.RunTask()
+	if result.Error != nil {
+		panic(result.Error)
+	}
+
+	t.ContainerId = result.ContainerId
+	fmt.Printf("task %s is running in container %s\n", t.ID, t.ContainerId)
+	fmt.Println("Sleepy time")
+	time.Sleep(time.Second * 30)
+
+	fmt.Printf("stopping task %s\n", t.ID)
+	t.State = task.Completed
+	w.AddTask(t)
+	result = w.RunTask()
+	if result.Error != nil {
+		panic(result.Error)
+	}
+
+}
+
+func main() {
+
+	worker_main()
 }
