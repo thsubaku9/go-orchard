@@ -29,7 +29,7 @@ func (s State) String() string {
 	}[s]
 }
 
-var stateTransitionMap = FSM[State, Event]{
+var TaskFSM = FSM[State, Event]{
 	transitionListing: map[State][]State{
 		Pending:   {Scheduled},
 		Scheduled: {Scheduled, Running, Failed},

@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"orchard/task"
@@ -42,9 +43,22 @@ func (w *Worker) RunTask() task.DockerResult {
 		w.Db[taskQueued.ID] = &taskQueued
 	}
 
-	// todok
-	return task.DockerResult{}
+	var result task.DockerResult
 
+	if task.TaskFSM.ValidStateTransition(taskPersisted.State, taskQueued.State) {
+		switch taskQueued.State {
+		case task.Scheduled:
+			result = w.StartTask(taskQueued)
+		case task.Completed:
+			result = w.StopTask(taskQueued)
+		default:
+			result.Error = errors.New("we should not get here")
+		}
+	} else {
+		result.Error = fmt.Errorf("invalid transition from %v to %v", taskPersisted.State, taskQueued.State)
+	}
+
+	return result
 }
 
 func (w *Worker) AddTask(t task.Task) {
