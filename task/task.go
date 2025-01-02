@@ -9,6 +9,8 @@ import (
 
 type State int
 
+type Event string
+
 const (
 	Pending State = iota
 	Scheduled
@@ -25,6 +27,16 @@ func (s State) String() string {
 		"Completed",
 		"Failed",
 	}[s]
+}
+
+var stateTransitionMap = FSM[State, Event]{
+	transitionListing: map[State][]State{
+		Pending:   {Scheduled},
+		Scheduled: {Scheduled, Running, Failed},
+		Running:   {Running, Completed, Failed},
+		Completed: {},
+		Failed:    {},
+	},
 }
 
 type Task struct {

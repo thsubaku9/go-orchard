@@ -21,8 +21,30 @@ type Worker struct {
 func (w *Worker) CollectStats() {
 	fmt.Println("I will collect stats")
 }
-func (w *Worker) RunTask() {
-	fmt.Println("I will start or stop a task")
+func (w *Worker) RunTask() task.DockerResult {
+	t := w.Queue.Dequeue()
+
+	if t == nil {
+		log.Printf("No task found")
+		return task.DockerResult{Error: nil}
+	}
+
+	taskQueued, ok := t.(task.Task)
+
+	if !ok {
+		return task.DockerResult{Error: fmt.Errorf("%+v type casting error", t)}
+	}
+
+	taskPersisted := w.Db[taskQueued.ID]
+
+	if taskPersisted == nil {
+		taskPersisted = &taskQueued
+		w.Db[taskQueued.ID] = &taskQueued
+	}
+
+	// todok
+	return task.DockerResult{}
+
 }
 
 func (w *Worker) AddTask(t task.Task) {
