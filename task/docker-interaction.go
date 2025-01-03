@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/engine-api/client"
@@ -15,6 +16,19 @@ import (
 type Docker struct {
 	Client *client.Client
 	Config Config
+}
+
+var clientPool sync.Pool = sync.Pool{
+	New: func() any {
+		client, _ := client.NewEnvClient()
+		return &Docker{
+			Client: client,
+		}
+	},
+}
+
+func NewClientFromPool() *Docker {
+	return clientPool.Get().(*Docker)
 }
 
 func NewDocker(c Config) (*Docker, error) {

@@ -110,12 +110,17 @@ func (w *Worker) StopTask(t task.Task) task.DockerResult {
 	return res
 }
 
-func (w *Worker) ListTasks() []task.DockerResult {
-	// todo
-	return nil
+func (w *Worker) ListTasks() []uuid.UUID {
+	keys := make([]uuid.UUID, 0, len(w.Db))
+	for u := range w.Db {
+		keys = append(keys, u)
+	}
+
+	return keys
 }
 
-func (w *Worker) GetTask(taskId string) task.DockerInspectResponse {
-	// todo
-	return task.DockerInspectResponse{}
+func (w *Worker) GetTask(taskId uuid.UUID) task.DockerInspectResponse {
+	taskInfo := w.Db[taskId]
+
+	return task.NewClientFromPool().Inspect(taskInfo.ContainerId)
 }

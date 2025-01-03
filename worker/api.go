@@ -70,7 +70,7 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	tID, _ := uuid.Parse(taskId)
-	_, ok := httpApi.Worker.Db[tID]
+	taskToStop, ok := httpApi.Worker.Db[tID]
 
 	if !ok {
 		log.Printf("No task with ID %v found", tID)
@@ -83,22 +83,36 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	//todo
+	taskCopy := *taskToStop
+	taskCopy.State = task.Completed
+	httpApi.Worker.AddTask(taskCopy)
+
+	w.WriteHeader(200)
+
+	json.NewEncoder(w).Encode(StandardResponse{
+		HttpStatusCode: 200,
+		Response:       taskCopy,
+	})
 
 }
 
 func (httpApi *HttpApi) ListAllTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-	json.NewEncoder(w).Encode(httpApi.Worker.ListTasks())
+	json.NewEncoder(w).Encode(StandardResponse{
+		HttpStatusCode: 200,
+		Response:       httpApi.Worker.ListTasks(),
+	})
 
 }
 
 func (httpApi *HttpApi) GetTasks(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+	tID, _ := uuid.Parse(vars["taskId"])
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
-	json.NewEncoder(w).Encode(httpApi.Worker.GetTask(vars["taskId"]))
+	json.NewEncoder(w).Encode(httpApi.Worker.GetTask(tID))
 }
 
 func (httpApi *HttpApi) initRouter() {
@@ -110,15 +124,33 @@ func (httpApi *HttpApi) initRouter() {
 	httpApi.Router.HandleFunc("/tasks/{taskId}", httpApi.StopTaskHandler).Methods("DELETE")
 }
 
-func (httpApi *HttpApi) InitServer() *http.Server {
+func (httpApi *HttpApi) StartServer() {
 
 	httpApi.initRouter()
 
-	return &http.Server{
+	printEndpoints(httpApi.Router)
+	server := http.Server{
 		Handler:      httpApi.Router,
 		Addr:         fmt.Sprintf("%s:%s", httpApi.Address, httpApi.Port),
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
 
+	server.ListenAndServe()
+
+}
+
+func printEndpoints(r *mux.Router) {
+	r.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		path, err := route.GetPathTemplate()
+		if err != nil {
+			return err
+		}
+		methods, err := route.GetMethods()
+		if err != nil {
+			return err
+		}
+		log.Printf("%v %s\n", methods, path)
+		return nil
+	})
 }

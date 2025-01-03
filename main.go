@@ -63,7 +63,6 @@ func set_docker_envars() {
 	}
 }
 func docker_main() {
-	set_docker_envars()
 	log.Printf("Container being created\n")
 	dockerTask, dockerResult := createContainer()
 
@@ -78,8 +77,8 @@ func docker_main() {
 }
 
 func worker_main() {
-	set_docker_envars()
 	w := worker.Worker{
+		Name:  "Sample worker",
 		Queue: *queue.New(),
 		Db:    make(map[uuid.UUID]*task.Task),
 	}
@@ -115,10 +114,43 @@ func worker_main() {
 	if result.Error != nil {
 		panic(result.Error)
 	}
+}
 
+func worker_api_main() {
+	w := &worker.Worker{
+		Name:  "Sample worker",
+		Queue: *queue.New(),
+		Db:    make(map[uuid.UUID]*task.Task),
+	}
+
+	worker_api := worker.HttpApi{
+		Address: "127.0.0.1",
+		Port:    "7812",
+		Worker:  w,
+	}
+
+	go runTasks(w)
+	worker_api.StartServer()
+}
+
+func runTasks(w *worker.Worker) {
+	ticker := time.NewTicker(time.Second * 5)
+
+	for _ = range ticker.C {
+		log.Println("Tick")
+		if w.Queue.Len() != 0 {
+			result := w.RunTask()
+			if result.Error != nil {
+				log.Printf("Error running task: %v\n", result.Error)
+			}
+		} else {
+			log.Printf("No tasks to process currently.\n")
+		}
+	}
 }
 
 func main() {
 
-	worker_main()
+	set_docker_envars()
+	worker_api_main()
 }
