@@ -115,7 +115,7 @@ func (w *Worker) ListTasks() []task.DockerResult {
 	return nil
 }
 
-func (w *Worker) GetTask(containerId string) task.DockerInspectResponse {
+func (w *Worker) GetTask(taskId string) task.DockerInspectResponse {
 	// todo
 	return task.DockerInspectResponse{}
 }
