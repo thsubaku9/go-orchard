@@ -9,7 +9,7 @@ import (
 
 type State int
 
-type Event string
+type Event int
 
 const (
 	Pending State = iota
@@ -17,6 +17,12 @@ const (
 	Running
 	Completed
 	Failed
+	Dropped
+)
+
+const (
+	SpinUp Event = iota
+	SpinDown
 )
 
 func (s State) String() string {
@@ -26,6 +32,7 @@ func (s State) String() string {
 		"Running",
 		"Completed",
 		"Failed",
+		"Dropped",
 	}[s]
 }
 
@@ -36,13 +43,25 @@ var TaskFSM = FSM[State, Event]{
 		Running:   {Running, Completed, Failed},
 		Completed: {},
 		Failed:    {},
+		Dropped:   {},
 	},
+	nextMapping: map[State]map[Event]State{
+		Pending: {
+			SpinUp: Scheduled,
+		},
+		Scheduled: {
+			SpinUp: Running,
+		},
+	},
+
+	mappingMissingState: Dropped,
 }
 
 type Task struct {
 	ID            uuid.UUID
 	Name          string
 	State         State
+	Event         Event
 	Image         string
 	Memory        int
 	Disk          int

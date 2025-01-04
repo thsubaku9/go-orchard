@@ -22,6 +22,7 @@ type Worker struct {
 func (w *Worker) CollectStats() {
 	fmt.Println("I will collect stats")
 }
+
 func (w *Worker) RunTask() task.DockerResult {
 	t := w.Queue.Dequeue()
 
@@ -45,8 +46,14 @@ func (w *Worker) RunTask() task.DockerResult {
 
 	var result task.DockerResult
 
-	if task.TaskFSM.ValidStateTransition(taskPersisted.State, taskQueued.State) {
+	_, _, nextState := task.TaskFSM.Next(taskPersisted.State, taskQueued.Event)
+
+	if task.TaskFSM.ValidStateTransition(taskPersisted.State, nextState) {
 		switch taskQueued.State {
+		case task.Pending:
+			result = task.DockerResult{Result: fmt.Sprintf("%s task is scheduled", taskPersisted.ID)}
+			taskPersisted.State = nextState
+			w.AddTask(*taskPersisted)
 		case task.Scheduled:
 			result = w.StartTask(taskQueued)
 		case task.Completed:

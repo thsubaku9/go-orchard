@@ -44,6 +44,9 @@ func (httpApi *HttpApi) StartTaskHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	ts.Task.State = task.Pending
+	ts.Task.Event = task.SpinUp
+
 	httpApi.Worker.AddTask(ts.Task)
 	log.Printf("Added task %v\n", ts.Task.ID)
 	w.WriteHeader(201)
@@ -84,7 +87,7 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	taskCopy := *taskToStop
-	taskCopy.State = task.Completed
+	taskCopy.Event = task.SpinDown
 	httpApi.Worker.AddTask(taskCopy)
 
 	w.WriteHeader(200)
@@ -106,9 +109,20 @@ func (httpApi *HttpApi) ListAllTasks(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (httpApi *HttpApi) GetTasks(w http.ResponseWriter, r *http.Request) {
+func (httpApi *HttpApi) GetTask(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	tID, _ := uuid.Parse(vars["taskId"])
+
+	if vars["taskId"] == "" {
+		log.Printf("No taskID passed in request.\n")
+		w.WriteHeader(400)
+
+		json.NewEncoder(w).Encode(StandardResponse{
+			HttpStatusCode: 201,
+			ErrorMsg:       "Empty taskId passed",
+		})
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
@@ -118,8 +132,8 @@ func (httpApi *HttpApi) GetTasks(w http.ResponseWriter, r *http.Request) {
 func (httpApi *HttpApi) initRouter() {
 	httpApi.Router = mux.NewRouter()
 
-	httpApi.Router.HandleFunc("/tasks", httpApi.GetTasks).Methods("GET")
-	httpApi.Router.HandleFunc("/tasks/{taskId}", httpApi.GetTasks).Methods("GET")
+	httpApi.Router.HandleFunc("/tasks", httpApi.ListAllTasks).Methods("GET")
+	httpApi.Router.HandleFunc("/tasks/{taskId}", httpApi.GetTask).Methods("GET")
 	httpApi.Router.HandleFunc("/tasks", httpApi.StartTaskHandler).Methods("POST")
 	httpApi.Router.HandleFunc("/tasks/{taskId}", httpApi.StopTaskHandler).Methods("DELETE")
 }
@@ -127,8 +141,6 @@ func (httpApi *HttpApi) initRouter() {
 func (httpApi *HttpApi) StartServer() {
 
 	httpApi.initRouter()
-
-	printEndpoints(httpApi.Router)
 	server := http.Server{
 		Handler:      httpApi.Router,
 		Addr:         fmt.Sprintf("%s:%s", httpApi.Address, httpApi.Port),
@@ -136,6 +148,8 @@ func (httpApi *HttpApi) StartServer() {
 		ReadTimeout:  15 * time.Second,
 	}
 
+	log.Printf("Hosting on %s:%s\n", httpApi.Address, httpApi.Port)
+	printEndpoints(httpApi.Router)
 	server.ListenAndServe()
 
 }

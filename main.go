@@ -134,7 +134,7 @@ func worker_api_main() {
 }
 
 func runTasks(w *worker.Worker) {
-	ticker := time.NewTicker(time.Second * 5)
+	ticker := time.NewTicker(time.Second * 8)
 
 	for _ = range ticker.C {
 		log.Println("Tick")
