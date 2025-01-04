@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 	"log"
-	"math"
 	"os"
+	"sync"
 
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/engine-api/client"
@@ -18,6 +18,33 @@ type Docker struct {
 	Config Config
 }
 
+var clientPool sync.Pool = sync.Pool{
+	New: func() any {
+		client, _ := client.NewEnvClient()
+		return &Docker{
+			Client: client,
+		}
+	},
+}
+
+func NewClientFromPool() *Docker {
+	return clientPool.Get().(*Docker)
+}
+
+func NewDocker(c Config) (*Docker, error) {
+	dockerClient, err := client.NewEnvClient()
+
+	if err != nil {
+		log.Printf("Error creating client %v\n", err)
+		return nil, err
+	}
+
+	return &Docker{
+		Client: dockerClient,
+		Config: c,
+	}, nil
+}
+
 func (d *Docker) Run() DockerResult {
 	ctx := context.Background()
 	reader, err := d.Client.ImagePull(ctx, d.Config.Image, types.ImagePullOptions{})
@@ -27,6 +54,7 @@ func (d *Docker) Run() DockerResult {
 		return DockerResult{Error: err}
 	}
 
+	defer reader.Close()
 	io.Copy(os.Stdout, reader)
 
 	cc := container.Config{
@@ -41,7 +69,7 @@ func (d *Docker) Run() DockerResult {
 		RestartPolicy: container.RestartPolicy{Name: string(d.Config.RestartPolicy)},
 		Resources: container.Resources{
 			Memory:    d.Config.Memory,
-			CPUShares: int64(d.Config.Cpu * math.Pow(10, 9)), // todok -> this was supposed to be nanoCpus
+			CPUShares: int64(d.Config.Cpu),
 		},
 		PublishAllPorts: true,
 	}
@@ -58,8 +86,6 @@ func (d *Docker) Run() DockerResult {
 		return DockerResult{Error: err}
 	}
 
-	// d.Config.Runtime.ContainerID = res.ID
-
 	out, err := d.Client.ContainerLogs(ctx, res.ID, types.ContainerLogsOptions{ShowStdout: true, ShowStderr: true})
 
 	if err != nil {
@@ -67,6 +93,7 @@ func (d *Docker) Run() DockerResult {
 		return DockerResult{Error: err}
 	}
 
+	defer out.Close()
 	stdcopy.StdCopy(os.Stdout, os.Stderr, out)
 	return DockerResult{ContainerId: res.ID, Action: "start", Result: "success"}
 }

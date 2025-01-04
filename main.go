@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"log"
 	"orchard/task"
+	"orchard/worker"
 	"os"
 	"time"
 
-	"github.com/docker/engine-api/client"
+	"github.com/golang-collections/collections/queue"
+	"github.com/google/uuid"
 	"github.com/ttacon/chalk"
 )
 
@@ -23,16 +25,12 @@ func createContainer() (*task.Docker, *task.DockerResult) {
 		},
 	}
 
-	dc, err := client.NewEnvClient()
+	d, err := task.NewDocker(c)
 
 	if err != nil {
 		log.Printf("Error creating client %v\n", err)
 		return nil, nil
 	}
-
-	d := task.Docker{
-		Client: dc,
-		Config: c}
 
 	result := d.Run()
 	if result.Error != nil {
@@ -40,7 +38,7 @@ func createContainer() (*task.Docker, *task.DockerResult) {
 		return nil, nil
 	}
 	log.Printf("Container %s is running with config %v\n", result.ContainerId, c)
-	return &d, &result
+	return d, &result
 }
 
 func purgeContainer(d *task.Docker, containerId string) *task.DockerResult {
@@ -55,16 +53,17 @@ func purgeContainer(d *task.Docker, containerId string) *task.DockerResult {
 	return &res
 }
 
-func main() {
-
-	log.Printf("Container being created\n")
+func set_docker_envars() {
 	if os.Getenv("DOCKER_HOST") == "" {
 		os.Setenv("DOCKER_HOST", "unix:///Users/kernel/.docker/run/docker.sock")
 
-	} else if os.Getenv("DOCKER_API_VERSION") == "" {
+	}
+	if os.Getenv("DOCKER_API_VERSION") == "" {
 		os.Setenv("DOCKER_API_VERSION", "1.45")
 	}
-
+}
+func docker_main() {
+	log.Printf("Container being created\n")
 	dockerTask, dockerResult := createContainer()
 
 	if dockerResult.Error != nil {
@@ -75,4 +74,83 @@ func main() {
 
 	fmt.Printf("Stopping container %s\n", dockerResult.ContainerId)
 	_ = purgeContainer(dockerTask, dockerResult.ContainerId)
+}
+
+func worker_main() {
+	w := worker.Worker{
+		Name:  "Sample worker",
+		Queue: *queue.New(),
+		Db:    make(map[uuid.UUID]*task.Task),
+	}
+
+	t := task.Task{
+		ID:    uuid.New(),
+		Name:  "test-container-1",
+		State: task.Scheduled,
+		Image: "strm/helloworld-http",
+		TaskConfig: task.Config{
+			Name:  "test-container-1",
+			Image: "docker.io/strm/helloworld-http:latest",
+			Env:   []string{},
+		},
+	}
+
+	fmt.Println("starting task")
+	w.AddTask(t)
+	result := w.RunTask()
+	if result.Error != nil {
+		panic(result.Error)
+	}
+
+	t.ContainerId = result.ContainerId
+	fmt.Printf("task %s is running in container %s\n", t.ID, t.ContainerId)
+	fmt.Println("Sleepy time")
+	time.Sleep(time.Second * 30)
+
+	fmt.Printf("stopping task %s\n", t.ID)
+	t.State = task.Completed
+	w.AddTask(t)
+	result = w.RunTask()
+	if result.Error != nil {
+		panic(result.Error)
+	}
+}
+
+func worker_api_main() {
+	w := &worker.Worker{
+		Name:  "Sample worker",
+		Queue: *queue.New(),
+		Db:    make(map[uuid.UUID]*task.Task),
+	}
+
+	worker_api := worker.HttpApi{
+		Address: "127.0.0.1",
+		Port:    "7812",
+		Worker:  w,
+	}
+
+	go runTasks(w)
+	worker_api.StartServer()
+}
+
+func runTasks(w *worker.Worker) {
+	ticker := time.NewTicker(time.Second * 8)
+
+	for _ = range ticker.C {
+		log.Println("Tick")
+		if w.Queue.Len() != 0 {
+			result := w.RunTask()
+			if result.Error != nil {
+				log.Printf("Error running task: %v\n", result.Error)
+			}
+		} else {
+			log.Printf("No tasks to process currently.\n")
+		}
+	}
+}
+
+func main() {
+
+	set_docker_envars()
+	worker_api_main()
 }
