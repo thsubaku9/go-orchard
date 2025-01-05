@@ -153,4 +153,6 @@ func main() {
 
 	set_docker_envars()
 	worker_api_main()
+
+	// fmt.Printf("%+v\n", worker.GetFullMetrics())
 }

@@ -63,6 +63,7 @@ type Task struct {
 	State         State
 	Event         Event
 	Image         string
+	CPU           float64
 	Memory        int
 	Disk          int
 	ExposedPorts  nat.PortSet
