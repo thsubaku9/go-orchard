@@ -129,6 +129,15 @@ func (httpApi *HttpApi) GetTask(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(httpApi.Worker.GetTask(tID))
 }
 
+func (httpApi *HttpApi) GetStatsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	json.NewEncoder(w).Encode(StandardResponse{
+		HttpStatusCode: 200,
+		Response:       GetFullMetrics(),
+	})
+}
+
 func (httpApi *HttpApi) initRouter() {
 	httpApi.Router = mux.NewRouter()
 
@@ -136,6 +145,8 @@ func (httpApi *HttpApi) initRouter() {
 	httpApi.Router.HandleFunc("/tasks/{taskId}", httpApi.GetTask).Methods("GET")
 	httpApi.Router.HandleFunc("/tasks", httpApi.StartTaskHandler).Methods("POST")
 	httpApi.Router.HandleFunc("/tasks/{taskId}", httpApi.StopTaskHandler).Methods("DELETE")
+
+	httpApi.Router.HandleFunc("/stats", httpApi.GetStatsHandler).Methods("GET")
 }
 
 func (httpApi *HttpApi) StartServer() {
