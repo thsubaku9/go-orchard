@@ -1,10 +1,13 @@
 package manager
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"orchard/task"
+	"orchard/worker"
 
 	"github.com/golang-collections/collections/queue"
 	"github.com/google/uuid"
@@ -49,7 +52,26 @@ func (m *Manager) SendWork() {
 		log.Printf("Unable to marshal taskevent object: %v.\n", te)
 	}
 
-	//todo -> sending of the data to worker
+	url := fmt.Sprintf("http://%s/tasks", workerId)
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		log.Printf("Error connecting to %v: %v\n", workerId, err)
+		m.Pending.Enqueue(te)
+		return
+	}
+
+	e := worker.StandardResponse{}
+	json.NewDecoder(resp.Body).Decode(&e)
+
+	if resp.StatusCode != http.StatusCreated {
+		log.Printf("Error: %s", e.ErrorMsg)
+		return
+	}
+
+	var taskResult task.Task = e.Response.(task.Task)
+
+	log.Printf("%#v\n", taskResult)
 }
 
 func (m *Manager) UpdateTasks() {

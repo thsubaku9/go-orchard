@@ -35,9 +35,9 @@ func (httpApi *HttpApi) StartTaskHandler(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		msg := fmt.Sprintf("Error unmarshalling body: %v\n", err)
 		log.Print(msg)
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusNotFound)
 		e := StandardResponse{
-			HttpStatusCode: 400,
+			HttpStatusCode: http.StatusNotFound,
 			ErrorMsg:       msg,
 		}
 		json.NewEncoder(w).Encode(e)
@@ -49,9 +49,9 @@ func (httpApi *HttpApi) StartTaskHandler(w http.ResponseWriter, r *http.Request)
 
 	httpApi.Worker.AddTask(ts.Task)
 	log.Printf("Added task %v\n", ts.Task.ID)
-	w.WriteHeader(201)
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(StandardResponse{
-		HttpStatusCode: 201,
+		HttpStatusCode: http.StatusCreated,
 		Response:       ts.Task,
 	})
 
@@ -63,10 +63,10 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 	if taskId == "" {
 		log.Printf("No taskID passed in request.\n")
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 
 		json.NewEncoder(w).Encode(StandardResponse{
-			HttpStatusCode: 201,
+			HttpStatusCode: http.StatusBadRequest,
 			ErrorMsg:       "Empty taskId passed",
 		})
 		return
@@ -77,10 +77,10 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 	if !ok {
 		log.Printf("No task with ID %v found", tID)
-		w.WriteHeader(404)
+		w.WriteHeader(http.StatusNotFound)
 
 		json.NewEncoder(w).Encode(StandardResponse{
-			HttpStatusCode: 404,
+			HttpStatusCode: http.StatusNotFound,
 			ErrorMsg:       fmt.Sprintf("No task with ID %v found", tID),
 		})
 		return
@@ -90,10 +90,10 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 	taskCopy.Event = task.SpinDown
 	httpApi.Worker.AddTask(taskCopy)
 
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 
 	json.NewEncoder(w).Encode(StandardResponse{
-		HttpStatusCode: 200,
+		HttpStatusCode: http.StatusOK,
 		Response:       taskCopy,
 	})
 
@@ -101,9 +101,9 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 func (httpApi *HttpApi) ListAllTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(StandardResponse{
-		HttpStatusCode: 200,
+		HttpStatusCode: http.StatusOK,
 		Response:       httpApi.Worker.ListTasks(),
 	})
 
@@ -115,25 +115,29 @@ func (httpApi *HttpApi) GetTask(w http.ResponseWriter, r *http.Request) {
 
 	if vars["taskId"] == "" {
 		log.Printf("No taskID passed in request.\n")
-		w.WriteHeader(400)
+		w.WriteHeader(http.StatusBadRequest)
 
 		json.NewEncoder(w).Encode(StandardResponse{
-			HttpStatusCode: 201,
+			HttpStatusCode: http.StatusBadRequest,
 			ErrorMsg:       "Empty taskId passed",
 		})
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-	json.NewEncoder(w).Encode(httpApi.Worker.GetTask(tID))
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(
+		StandardResponse{
+			HttpStatusCode: http.StatusOK,
+			Response:       httpApi.Worker.GetTask(tID),
+		})
 }
 
 func (httpApi *HttpApi) GetStatsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(StandardResponse{
-		HttpStatusCode: 200,
+		HttpStatusCode: http.StatusOK,
 		Response:       GetFullMetrics(),
 	})
 }
@@ -147,6 +151,21 @@ func (httpApi *HttpApi) initRouter() {
 	httpApi.Router.HandleFunc("/tasks/{taskId}", httpApi.StopTaskHandler).Methods("DELETE")
 
 	httpApi.Router.HandleFunc("/stats", httpApi.GetStatsHandler).Methods("GET")
+}
+
+func printEndpoints(r *mux.Router) {
+	r.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
+		path, err := route.GetPathTemplate()
+		if err != nil {
+			return err
+		}
+		methods, err := route.GetMethods()
+		if err != nil {
+			return err
+		}
+		log.Printf("%v %s\n", methods, path)
+		return nil
+	})
 }
 
 func (httpApi *HttpApi) StartServer() {
@@ -163,19 +182,4 @@ func (httpApi *HttpApi) StartServer() {
 	printEndpoints(httpApi.Router)
 	server.ListenAndServe()
 
-}
-
-func printEndpoints(r *mux.Router) {
-	r.Walk(func(route *mux.Route, router *mux.Router, ancestors []*mux.Route) error {
-		path, err := route.GetPathTemplate()
-		if err != nil {
-			return err
-		}
-		methods, err := route.GetMethods()
-		if err != nil {
-			return err
-		}
-		log.Printf("%v %s\n", methods, path)
-		return nil
-	})
 }
