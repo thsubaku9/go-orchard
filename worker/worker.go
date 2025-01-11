@@ -117,7 +117,16 @@ func (w *Worker) StopTask(t task.Task) task.DockerResult {
 	return res
 }
 
-func (w *Worker) ListTasks() []uuid.UUID {
+func (w *Worker) ListTasks() []task.Task {
+	values := make([]task.Task, 0, len(w.Db))
+	for _, v := range w.Db {
+		values = append(values, *v)
+	}
+
+	return values
+}
+
+func (w *Worker) ListTaskIds() []uuid.UUID {
 	keys := make([]uuid.UUID, 0, len(w.Db))
 	for u := range w.Db {
 		keys = append(keys, u)

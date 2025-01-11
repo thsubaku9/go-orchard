@@ -106,7 +106,15 @@ func (httpApi *HttpApi) ListAllTasks(w http.ResponseWriter, r *http.Request) {
 		HttpStatusCode: http.StatusOK,
 		Response:       httpApi.Worker.ListTasks(),
 	})
+}
 
+func (httpApi *HttpApi) ListAllTaskIds(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(StandardResponse{
+		HttpStatusCode: http.StatusOK,
+		Response:       httpApi.Worker.ListTaskIds(),
+	})
 }
 
 func (httpApi *HttpApi) GetTask(w http.ResponseWriter, r *http.Request) {
@@ -146,6 +154,7 @@ func (httpApi *HttpApi) initRouter() {
 	httpApi.Router = mux.NewRouter()
 
 	httpApi.Router.HandleFunc("/tasks", httpApi.ListAllTasks).Methods("GET")
+	httpApi.Router.HandleFunc("/tasks/ids", httpApi.ListAllTasks).Methods("GET")
 	httpApi.Router.HandleFunc("/tasks/{taskId}", httpApi.GetTask).Methods("GET")
 	httpApi.Router.HandleFunc("/tasks", httpApi.StartTaskHandler).Methods("POST")
 	httpApi.Router.HandleFunc("/tasks/{taskId}", httpApi.StopTaskHandler).Methods("DELETE")
