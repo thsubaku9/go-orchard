@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"orchard/manager"
 	"orchard/task"
 	"orchard/worker"
 	"os"
@@ -76,14 +77,8 @@ func docker_main() {
 	_ = purgeContainer(dockerTask, dockerResult.ContainerId)
 }
 
-func worker_main() {
-	w := worker.Worker{
-		Name:  "Sample worker",
-		Queue: *queue.New(),
-		Db:    make(map[uuid.UUID]*task.Task),
-	}
-
-	t := task.Task{
+func create_task_config() task.Task {
+	return task.Task{
 		ID:    uuid.New(),
 		Name:  "test-container-1",
 		State: task.Scheduled,
@@ -94,7 +89,16 @@ func worker_main() {
 			Env:   []string{},
 		},
 	}
+}
 
+func worker_main() {
+	w := worker.Worker{
+		Name:  "Sample worker",
+		Queue: *queue.New(),
+		Db:    make(map[uuid.UUID]*task.Task),
+	}
+
+	t := create_task_config()
 	fmt.Println("starting task")
 	w.AddTask(t)
 	result := w.RunTask()
@@ -130,6 +134,7 @@ func worker_api_main() {
 	}
 
 	go runTasks(w)
+	go w.CollectStats()
 	worker_api.StartServer()
 }
 
@@ -154,5 +159,32 @@ func main() {
 	set_docker_envars()
 	worker_api_main()
 
-	// fmt.Printf("%+v\n", worker.GetFullMetrics())
+	workers := []string{fmt.Sprintf("%s:%d", "127.0.0.1", 7812)}
+	m := manager.New(workers)
+
+	for i := 0; i < 3; i++ {
+		te := task.TaskEvent{
+			ID:    uuid.New(),
+			State: task.Pending,
+			Task:  create_task_config(),
+		}
+
+		m.AddTask(te)
+		m.SendWork()
+	}
+
+	go func() {
+		for {
+			fmt.Printf("[Manager] Updating tasks from %d workers\n", len(m.Workers))
+			m.UpdateTasks()
+			time.Sleep(15 * time.Second)
+		}
+	}()
+
+	for {
+		for _, t := range m.TaskDb {
+			fmt.Printf("[Manager] Task: id: %s, state: %d\n", t.ID, t.State)
+			time.Sleep(15 * time.Second)
+		}
+	}
 }

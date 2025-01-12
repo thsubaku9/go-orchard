@@ -1,9 +1,6 @@
 package worker
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
 	"time"
 
 	"github.com/shirou/gopsutil/cpu"
@@ -72,17 +69,10 @@ func DeliverPeriodicStats(d time.Duration, bufferSize int) <-chan Metrics {
 	metricChannel := make(chan Metrics, bufferSize)
 
 	go func() {
-		for _ = range ticker.C {
+		for range ticker.C {
 			metricChannel <- GetFullMetrics()
 		}
 	}()
 
 	return metricChannel
-}
-
-func DispatchPerioidictStats(metricChannel <-chan Metrics, url string) {
-	for data := range metricChannel {
-		_d, _ := json.Marshal(data)
-		http.Post(url, "application/json", bytes.NewBuffer(_d))
-	}
 }

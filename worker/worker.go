@@ -20,7 +20,11 @@ type Worker struct {
 }
 
 func (w *Worker) CollectStats() {
-	fmt.Println("I will collect stats")
+	metricChannel := DeliverPeriodicStats(time.Second*10, 5)
+
+	for d := range metricChannel {
+		fmt.Println(d)
+	}
 }
 
 func (w *Worker) RunTask() task.DockerResult {
@@ -51,7 +55,7 @@ func (w *Worker) RunTask() task.DockerResult {
 	if task.TaskFSM.ValidStateTransition(taskPersisted.State, nextState) {
 		switch taskQueued.State {
 		case task.Pending:
-			result = task.DockerResult{Result: fmt.Sprintf("%s task is scheduled", taskPersisted.ID)}
+			result = task.DockerResult{Result: fmt.Sprintf("%s task moved to %s", taskPersisted.ID, nextState)}
 			taskPersisted.State = nextState
 			w.AddTask(*taskPersisted)
 		case task.Scheduled:

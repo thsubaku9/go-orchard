@@ -114,3 +114,23 @@ func (m *Manager) UpdateTasks() {
 	}
 
 }
+
+func New(workers []string) *Manager {
+
+	taskDb := make(map[uuid.UUID]*task.Task)
+	eventDb := make(map[uuid.UUID]*task.TaskEvent)
+	workerTaskMap := make(map[string][]uuid.UUID)
+	taskWorkerMap := make(map[uuid.UUID]string)
+	for worker := range workers {
+		workerTaskMap[workers[worker]] = []uuid.UUID{}
+	}
+
+	return &Manager{
+		Pending:       *queue.New(),
+		TaskDb:        taskDb,
+		EventDb:       eventDb,
+		Workers:       workers,
+		WorkerTaskMap: workerTaskMap,
+		TaskWorkerMap: taskWorkerMap,
+	}
+}
