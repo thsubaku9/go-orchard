@@ -72,6 +72,22 @@ func (w *Worker) RunTask() task.DockerResult {
 	return result
 }
 
+func (w *Worker) RunTaskPeriodically() {
+	ticker := time.NewTicker(time.Second * 8)
+
+	for range ticker.C {
+		log.Println("Tick Worker")
+		if w.Queue.Len() != 0 {
+			result := w.RunTask()
+			if result.Error != nil {
+				log.Printf("Error running task: %v\n", result.Error)
+			}
+		} else {
+			log.Printf("No tasks to process currently.\n")
+		}
+	}
+}
+
 func (w *Worker) AddTask(t task.Task) {
 	w.Queue.Enqueue(t)
 }

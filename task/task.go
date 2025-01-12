@@ -42,7 +42,6 @@ var TaskFSM = FSM[State, Event]{
 		Scheduled: {Scheduled, Running, Failed},
 		Running:   {Running, Completed, Failed},
 		Completed: {},
-		Failed:    {},
 		Dropped:   {},
 	},
 	nextMapping: map[State]map[Event]State{
@@ -50,7 +49,11 @@ var TaskFSM = FSM[State, Event]{
 			SpinUp: Scheduled,
 		},
 		Scheduled: {
-			SpinUp: Running,
+			SpinUp:   Running,
+			SpinDown: Completed,
+		},
+		Running: {
+			SpinDown: Completed,
 		},
 	},
 

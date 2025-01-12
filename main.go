@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"orchard/api"
 	"orchard/manager"
 	"orchard/task"
 	"orchard/worker"
@@ -127,31 +128,17 @@ func worker_api_main() {
 		Db:    make(map[uuid.UUID]*task.Task),
 	}
 
-	worker_api := worker.HttpApi{
-		Address: "127.0.0.1",
-		Port:    "7812",
-		Worker:  w,
+	worker_api := worker.HttpApiWorker{
+		HttpApi: api.HttpApi[worker.Worker]{
+			Address: "127.0.0.1",
+			Port:    "7812",
+			Ref:     w,
+		},
 	}
 
-	go runTasks(w)
+	go w.RunTaskPeriodically()
 	go w.CollectStats()
 	go worker_api.StartServer()
-}
-
-func runTasks(w *worker.Worker) {
-	ticker := time.NewTicker(time.Second * 8)
-
-	for _ = range ticker.C {
-		log.Println("Tick")
-		if w.Queue.Len() != 0 {
-			result := w.RunTask()
-			if result.Error != nil {
-				log.Printf("Error running task: %v\n", result.Error)
-			}
-		} else {
-			log.Printf("No tasks to process currently.\n")
-		}
-	}
 }
 
 func main() {

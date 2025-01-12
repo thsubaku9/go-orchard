@@ -6,8 +6,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"orchard/api"
 	"orchard/task"
-	"orchard/worker"
+	"time"
 
 	"github.com/golang-collections/collections/queue"
 	"github.com/google/uuid"
@@ -65,7 +66,7 @@ func (m *Manager) SendWork() {
 		return
 	}
 
-	e := worker.StandardResponse[task.Task]{}
+	e := api.StandardResponse[task.Task]{}
 	json.NewDecoder(resp.Body).Decode(&e)
 
 	if resp.StatusCode != http.StatusCreated {
@@ -92,7 +93,7 @@ func (m *Manager) UpdateTasks() {
 		}
 
 		d := json.NewDecoder(resp.Body)
-		e := worker.StandardResponse[[]task.Task]{}
+		e := api.StandardResponse[[]task.Task]{}
 		err = d.Decode(&e)
 		if err != nil {
 			log.Printf("Error unmarshalling tasks: %s\n", err.Error())
@@ -115,6 +116,23 @@ func (m *Manager) UpdateTasks() {
 		}
 	}
 
+}
+
+func (m *Manager) UpdateTasksPeriodically() {
+
+	ticker := time.NewTicker(time.Second * 12)
+	for range ticker.C {
+		m.UpdateTasks()
+	}
+
+}
+
+func (m *Manager) GetTasks() []*task.Task {
+	tasks := []*task.Task{}
+	for _, v := range m.TaskDb {
+		tasks = append(tasks, v)
+	}
+	return tasks
 }
 
 func New(workers []string) *Manager {
