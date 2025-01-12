@@ -65,7 +65,7 @@ func (m *Manager) SendWork() {
 		return
 	}
 
-	e := worker.StandardResponse{}
+	e := worker.StandardResponse[task.Task]{}
 	json.NewDecoder(resp.Body).Decode(&e)
 
 	if resp.StatusCode != http.StatusCreated {
@@ -73,31 +73,33 @@ func (m *Manager) SendWork() {
 		return
 	}
 
-	var taskResult task.Task = e.Response.(task.Task)
-
+	var taskResult task.Task = e.Response
 	log.Printf("%#v\n", taskResult)
 }
 
 func (m *Manager) UpdateTasks() {
 
-	for _, worker := range m.Workers {
-		log.Printf("Checking worker %v for task updates", worker)
-		url := fmt.Sprintf("http://%s/tasks", worker)
+	for _, workerString := range m.Workers {
+		log.Printf("Checking worker %v for task updates", workerString)
+		url := fmt.Sprintf("http://%s/tasks", workerString)
 		resp, err := http.Get(url)
 		if err != nil {
-			log.Printf("Error connecting to %v: %v\n", worker, err)
+			log.Printf("Error connecting to %v: %v\n", workerString, err)
 			return
 		} else if resp.StatusCode != http.StatusOK {
 			log.Printf("Error sending request: %v\n", err)
 			return
 		}
+
 		d := json.NewDecoder(resp.Body)
-		var tasks []task.Task
-		err = d.Decode(&tasks)
+		e := worker.StandardResponse[[]task.Task]{}
+		err = d.Decode(&e)
 		if err != nil {
 			log.Printf("Error unmarshalling tasks: %s\n", err.Error())
+			return
 		}
-		for _, t := range tasks {
+
+		for _, t := range e.Response {
 			log.Printf("Attempting to update task %v\n", t.ID)
 			_, ok := m.TaskDb[t.ID]
 			if !ok {

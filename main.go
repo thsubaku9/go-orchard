@@ -135,7 +135,7 @@ func worker_api_main() {
 
 	go runTasks(w)
 	go w.CollectStats()
-	worker_api.StartServer()
+	go worker_api.StartServer()
 }
 
 func runTasks(w *worker.Worker) {
@@ -162,7 +162,7 @@ func main() {
 	workers := []string{fmt.Sprintf("%s:%d", "127.0.0.1", 7812)}
 	m := manager.New(workers)
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 1; i++ {
 		te := task.TaskEvent{
 			ID:    uuid.New(),
 			State: task.Pending,

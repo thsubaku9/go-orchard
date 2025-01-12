@@ -19,10 +19,10 @@ type HttpApi struct {
 	Router  *mux.Router
 }
 
-type StandardResponse struct {
+type StandardResponse[R any] struct {
 	HttpStatusCode int
 	ErrorMsg       string
-	Response       interface{}
+	Response       R
 }
 
 func (httpApi *HttpApi) StartTaskHandler(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +36,7 @@ func (httpApi *HttpApi) StartTaskHandler(w http.ResponseWriter, r *http.Request)
 		msg := fmt.Sprintf("Error unmarshalling body: %v\n", err)
 		log.Print(msg)
 		w.WriteHeader(http.StatusNotFound)
-		e := StandardResponse{
+		e := StandardResponse[any]{
 			HttpStatusCode: http.StatusNotFound,
 			ErrorMsg:       msg,
 		}
@@ -50,7 +50,7 @@ func (httpApi *HttpApi) StartTaskHandler(w http.ResponseWriter, r *http.Request)
 	httpApi.Worker.AddTask(ts.Task)
 	log.Printf("Added task %v\n", ts.Task.ID)
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(StandardResponse{
+	json.NewEncoder(w).Encode(StandardResponse[task.Task]{
 		HttpStatusCode: http.StatusCreated,
 		Response:       ts.Task,
 	})
@@ -65,7 +65,7 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 		log.Printf("No taskID passed in request.\n")
 		w.WriteHeader(http.StatusBadRequest)
 
-		json.NewEncoder(w).Encode(StandardResponse{
+		json.NewEncoder(w).Encode(StandardResponse[any]{
 			HttpStatusCode: http.StatusBadRequest,
 			ErrorMsg:       "Empty taskId passed",
 		})
@@ -79,7 +79,7 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 		log.Printf("No task with ID %v found", tID)
 		w.WriteHeader(http.StatusNotFound)
 
-		json.NewEncoder(w).Encode(StandardResponse{
+		json.NewEncoder(w).Encode(StandardResponse[any]{
 			HttpStatusCode: http.StatusNotFound,
 			ErrorMsg:       fmt.Sprintf("No task with ID %v found", tID),
 		})
@@ -92,7 +92,7 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.WriteHeader(http.StatusOK)
 
-	json.NewEncoder(w).Encode(StandardResponse{
+	json.NewEncoder(w).Encode(StandardResponse[task.Task]{
 		HttpStatusCode: http.StatusOK,
 		Response:       taskCopy,
 	})
@@ -102,7 +102,7 @@ func (httpApi *HttpApi) StopTaskHandler(w http.ResponseWriter, r *http.Request) 
 func (httpApi *HttpApi) ListAllTasks(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(StandardResponse{
+	json.NewEncoder(w).Encode(StandardResponse[[]task.Task]{
 		HttpStatusCode: http.StatusOK,
 		Response:       httpApi.Worker.ListTasks(),
 	})
@@ -111,7 +111,7 @@ func (httpApi *HttpApi) ListAllTasks(w http.ResponseWriter, r *http.Request) {
 func (httpApi *HttpApi) ListAllTaskIds(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(StandardResponse{
+	json.NewEncoder(w).Encode(StandardResponse[[]uuid.UUID]{
 		HttpStatusCode: http.StatusOK,
 		Response:       httpApi.Worker.ListTaskIds(),
 	})
@@ -125,7 +125,7 @@ func (httpApi *HttpApi) GetTask(w http.ResponseWriter, r *http.Request) {
 		log.Printf("No taskID passed in request.\n")
 		w.WriteHeader(http.StatusBadRequest)
 
-		json.NewEncoder(w).Encode(StandardResponse{
+		json.NewEncoder(w).Encode(StandardResponse[any]{
 			HttpStatusCode: http.StatusBadRequest,
 			ErrorMsg:       "Empty taskId passed",
 		})
@@ -135,7 +135,7 @@ func (httpApi *HttpApi) GetTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(
-		StandardResponse{
+		StandardResponse[task.DockerInspectResponse]{
 			HttpStatusCode: http.StatusOK,
 			Response:       httpApi.Worker.GetTask(tID),
 		})
@@ -144,7 +144,7 @@ func (httpApi *HttpApi) GetTask(w http.ResponseWriter, r *http.Request) {
 func (httpApi *HttpApi) GetStatsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(StandardResponse{
+	json.NewEncoder(w).Encode(StandardResponse[Metrics]{
 		HttpStatusCode: http.StatusOK,
 		Response:       GetFullMetrics(),
 	})

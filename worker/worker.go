@@ -23,7 +23,7 @@ func (w *Worker) CollectStats() {
 	metricChannel := DeliverPeriodicStats(time.Second*10, 5)
 
 	for d := range metricChannel {
-		fmt.Println(d)
+		fmt.Println("Stats:: ", d)
 	}
 }
 
