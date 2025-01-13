@@ -20,7 +20,11 @@ type Worker struct {
 }
 
 func (w *Worker) CollectStats() {
-	fmt.Println("I will collect stats")
+	metricChannel := DeliverPeriodicStats(time.Second*10, 5)
+
+	for d := range metricChannel {
+		fmt.Println("Stats:: ", d)
+	}
 }
 
 func (w *Worker) RunTask() task.DockerResult {
@@ -51,7 +55,7 @@ func (w *Worker) RunTask() task.DockerResult {
 	if task.TaskFSM.ValidStateTransition(taskPersisted.State, nextState) {
 		switch taskQueued.State {
 		case task.Pending:
-			result = task.DockerResult{Result: fmt.Sprintf("%s task is scheduled", taskPersisted.ID)}
+			result = task.DockerResult{Result: fmt.Sprintf("%s task moved to %s", taskPersisted.ID, nextState)}
 			taskPersisted.State = nextState
 			w.AddTask(*taskPersisted)
 		case task.Scheduled:
@@ -66,6 +70,22 @@ func (w *Worker) RunTask() task.DockerResult {
 	}
 
 	return result
+}
+
+func (w *Worker) RunTaskPeriodically() {
+	ticker := time.NewTicker(time.Second * 8)
+
+	for range ticker.C {
+		log.Println("Tick Worker")
+		if w.Queue.Len() != 0 {
+			result := w.RunTask()
+			if result.Error != nil {
+				log.Printf("Error running task: %v\n", result.Error)
+			}
+		} else {
+			log.Printf("No tasks to process currently.\n")
+		}
+	}
 }
 
 func (w *Worker) AddTask(t task.Task) {
@@ -117,7 +137,16 @@ func (w *Worker) StopTask(t task.Task) task.DockerResult {
 	return res
 }
 
-func (w *Worker) ListTasks() []uuid.UUID {
+func (w *Worker) ListTasks() []task.Task {
+	values := make([]task.Task, 0, len(w.Db))
+	for _, v := range w.Db {
+		values = append(values, *v)
+	}
+
+	return values
+}
+
+func (w *Worker) ListTaskIds() []uuid.UUID {
 	keys := make([]uuid.UUID, 0, len(w.Db))
 	for u := range w.Db {
 		keys = append(keys, u)

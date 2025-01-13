@@ -63,13 +63,13 @@ func GetFullMetrics() Metrics {
 	}
 }
 
-func DeliverPeiodicStats(d time.Duration, bufferSize int) <-chan Metrics {
+func DeliverPeriodicStats(d time.Duration, bufferSize int) <-chan Metrics {
 
 	ticker := time.NewTicker(d)
 	metricChannel := make(chan Metrics, bufferSize)
 
 	go func() {
-		for _ = range ticker.C {
+		for range ticker.C {
 			metricChannel <- GetFullMetrics()
 		}
 	}()
