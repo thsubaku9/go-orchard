@@ -70,12 +70,15 @@ type Task struct {
 	Memory        int
 	Disk          int
 	ExposedPorts  nat.PortSet
+	HostPorts     nat.PortMap
 	PortBindings  map[string]string
-	RestartPolicy string
 	StartTime     time.Time
 	FinishTime    time.Time
 	ContainerId   string
 	TaskConfig    Config
+	RestartPolicy string
+	HealthCheck   string
+	RestartCount  int
 }
 
 func NewConfig(t *Task) Config {

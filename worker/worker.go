@@ -160,3 +160,45 @@ func (w *Worker) GetTask(taskId uuid.UUID) task.DockerInspectResponse {
 
 	return task.NewClientFromPool().Inspect(taskInfo.ContainerId)
 }
+
+func (w *Worker) InspectTask(t task.Task) task.DockerInspectResponse {
+
+	return task.NewClientFromPool().Inspect(t.ContainerId)
+}
+
+func (w *Worker) UpdateTasksPeriodically() {
+
+	ticker := time.NewTicker(time.Second * 12)
+	for range ticker.C {
+		w.UpdateTasks()
+	}
+
+}
+
+func (w *Worker) UpdateTasks() {
+	for k, v := range w.Db {
+		if v.State != task.Running {
+			return
+		}
+
+		resp := w.InspectTask(*v)
+		if resp.Error != nil {
+			fmt.Printf("ERROR: %v\n", resp.Error)
+			continue
+		}
+
+		if resp.Container == nil {
+			log.Printf("No container for running task %s\n", k)
+			w.Db[k].State = task.Failed
+			continue
+		}
+
+		if resp.Container.State.Status == "exited" {
+			log.Printf("Container for task %s in non-running state %s", k, resp.Container.State.Status)
+			w.Db[k].State = task.Failed
+			continue
+		}
+
+		w.Db[k].HostPorts = resp.Container.NetworkSettings.NetworkSettingsBase.Ports
+	}
+}

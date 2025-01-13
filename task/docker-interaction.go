@@ -122,14 +122,8 @@ func (d *Docker) Stop(containerId string) DockerResult {
 }
 
 func (d *Docker) Inspect(containerId string) DockerInspectResponse {
-	dc, err := client.NewEnvClient()
-	if err != nil {
-		return DockerInspectResponse{Error: err}
-	}
-
-	ctx := context.Background()
-
-	res, err := dc.ContainerInspect(ctx, containerId)
+	dc := NewClientFromPool().Client
+	res, err := dc.ContainerInspect(context.Background(), containerId)
 
 	if err != nil {
 		return DockerInspectResponse{Error: err}
