@@ -9,6 +9,7 @@ import (
 	"orchard/task"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 )
 
@@ -51,6 +52,42 @@ func (a *HttpApiManager) GetTasksHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (a *HttpApiManager) StopTaskHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	taskId := vars["taskId"]
+
+	if taskId == "" {
+		w.WriteHeader(http.StatusNotAcceptable)
+
+		json.NewEncoder(w).Encode(api.StandardResponse[any]{
+			HttpStatusCode: http.StatusNotAcceptable,
+			ErrorMsg:       "Empty taskId passed",
+		})
+		return
+	}
+
+	tID, _ := uuid.Parse(taskId)
+	taskToStop, ok := a.Ref.TaskDb[tID]
+
+	if !ok {
+		w.WriteHeader(http.StatusNotFound)
+
+		json.NewEncoder(w).Encode(api.StandardResponse[any]{
+			HttpStatusCode: http.StatusNotFound,
+			ErrorMsg:       "Task not found",
+		})
+		return
+	}
+
+	te := task.TaskEvent{ID: uuid.New(),
+		State:     task.Completed,
+		Timestamp: time.Now(),
+	}
+	taskCopy := *taskToStop
+	taskCopy.State = task.Completed
+	te.Task = taskCopy
+	a.Ref.AddTask(te)
+	log.Printf("Added task event %v to stop task %v\n", te.ID, taskToStop.ID)
+	w.WriteHeader(http.StatusNoContent)
 
 }
 
