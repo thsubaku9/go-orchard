@@ -3,13 +3,16 @@ package manager
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"orchard/api"
 	"orchard/task"
+	"strings"
 	"time"
 
+	"github.com/docker/go-connections/nat"
 	"github.com/golang-collections/collections/queue"
 	"github.com/google/uuid"
 )
@@ -19,7 +22,7 @@ type Manager struct {
 	TaskDb        map[uuid.UUID]*task.Task
 	EventDb       map[uuid.UUID]*task.TaskEvent
 	Workers       []string
-	WorkerTaskMap map[string][]uuid.UUID
+	WorkerTaskMap map[string]map[uuid.UUID]interface{}
 	TaskWorkerMap map[uuid.UUID]string
 	LastWorker    int
 }
@@ -45,8 +48,8 @@ func (m *Manager) SendWork() {
 	te := m.Pending.Dequeue().(task.TaskEvent)
 	log.Printf("Pulled %v off pending queue\n", te.Task)
 	m.EventDb[te.ID] = &te
-
-	m.WorkerTaskMap[workerId] = append(m.WorkerTaskMap[workerId], te.Task.ID)
+	// todo -> this requires some rework due to retries
+	m.WorkerTaskMap[workerId][te.Task.ID] = true
 	m.TaskWorkerMap[te.Task.ID] = workerId
 	te.Task.State = task.Scheduled
 
@@ -135,14 +138,107 @@ func (m *Manager) GetTasks() []*task.Task {
 	return tasks
 }
 
+func (m *Manager) DoHealthChecksPeriodically() {
+	ticker := time.NewTicker(time.Second * 18)
+	for range ticker.C {
+
+		log.Println("Performing task health check")
+		m.doHealthChecks()
+		log.Println("Task health checks completed")
+	}
+}
+
+func (m *Manager) doHealthChecks() {
+	for _, v := range m.TaskDb {
+		if v.State == task.Dropped {
+			continue
+		}
+
+		if v.State == task.Running && v.RestartCount < 3 {
+			err := m.checkTaskHealth(*v)
+			if err != nil {
+				m.restartTask(v)
+			}
+		} else if v.State == task.Failed && v.RestartCount < 3 {
+			m.restartTask(v)
+		}
+	}
+}
+
+func (m *Manager) checkTaskHealth(t task.Task) error {
+
+	w := m.TaskWorkerMap[t.ID]
+	hostPort := getHostPort(t.HostPorts)
+	workerHost, _, _ := strings.Cut(w, ":")
+	url := fmt.Sprintf("http://%s:%s%s", workerHost, *hostPort, t.HealthCheck)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		msg := fmt.Sprintf("Error connecting to health check %s", url)
+		log.Println(msg)
+		return errors.New(msg)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		msg := fmt.Sprintf("Error health check for task %s did not return 200\n", t.ID)
+		log.Println(msg)
+		return errors.New(msg)
+	}
+
+	return nil
+}
+
+func (m *Manager) restartTask(t *task.Task) {
+	w := m.TaskWorkerMap[t.ID]
+	t.State = task.Scheduled
+	t.RestartCount++
+	m.TaskDb[t.ID] = t
+
+	te := task.TaskEvent{
+		ID:        uuid.New(),
+		State:     task.Running,
+		Timestamp: time.Now(),
+		Task:      *t,
+	}
+
+	data, err := json.Marshal(te)
+	if err != nil {
+		log.Printf("Unable to marshal task object: %v.", t)
+		return
+	}
+
+	url := fmt.Sprintf("http://%s/tasks", w)
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(data))
+	if err != nil {
+		log.Printf("Error connecting to %v: %v", w, err)
+		m.Pending.Enqueue(t)
+		return
+	}
+
+	d := json.NewDecoder(resp.Body)
+	e := api.StandardResponse[task.Task]{}
+	err = d.Decode(&e)
+	if err != nil {
+		fmt.Printf("Error decoding response: %s\n", err.Error())
+		return
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		log.Printf("Response error (%d): %s", e.HttpStatusCode, e.ErrorMsg)
+		return
+	}
+
+	log.Printf("%#v\n", e.Response)
+}
+
 func New(workers []string) *Manager {
 
 	taskDb := make(map[uuid.UUID]*task.Task)
 	eventDb := make(map[uuid.UUID]*task.TaskEvent)
-	workerTaskMap := make(map[string][]uuid.UUID)
+	workerTaskMap := make(map[string]map[uuid.UUID]interface{})
 	taskWorkerMap := make(map[uuid.UUID]string)
 	for worker := range workers {
-		workerTaskMap[workers[worker]] = []uuid.UUID{}
+		workerTaskMap[workers[worker]] = make(map[uuid.UUID]interface{})
 	}
 
 	return &Manager{
@@ -153,4 +249,11 @@ func New(workers []string) *Manager {
 		WorkerTaskMap: workerTaskMap,
 		TaskWorkerMap: taskWorkerMap,
 	}
+}
+
+func getHostPort(ports nat.PortMap) *string {
+	for k := range ports {
+		return &ports[k][0].HostPort
+	}
+	return nil
 }
