@@ -5,6 +5,7 @@ import (
 	"log"
 	"orchard/api"
 	"orchard/manager"
+	"orchard/scheduler"
 	"orchard/task"
 	"orchard/worker"
 	"os"
@@ -147,7 +148,7 @@ func main() {
 	worker_api_main()
 
 	workers := []string{fmt.Sprintf("%s:%d", "127.0.0.1", 7812)}
-	m := manager.New(workers)
+	m := manager.New(workers, &scheduler.RoundRobin{})
 
 	for i := 0; i < 1; i++ {
 		te := task.TaskEvent{
