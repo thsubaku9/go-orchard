@@ -41,10 +41,9 @@ func (epvm *Epvm) ScoreNodes(t task.Task, candidateNodes []*node.Node) map[strin
 
 		newMemPercent := (memoryAllocated + float64(t.Memory/1000)) / float64(node.Memory)
 		memCost := (math.Pow(LIEB, newMemPercent) - math.Pow(LIEB, memoryAllocatedPercentage)) + (math.Pow(LIEB, (float64(node.TaskCount+1))/float64(max_jobs)) - math.Pow(LIEB, (float64(node.TaskCount))/float64(max_jobs)))
-		cpuCost := (math.Pow(LIEB, cpuLoad) - math.Pow(LIEB, cpuLoad)) + (math.Pow(LIEB, (float64(node.TaskCount+1))/float64(max_jobs)) - math.Pow(LIEB, (float64(node.TaskCount))/float64(max_jobs)))
+		cpuCost := (math.Pow(LIEB, cpuLoad+t.CPU) - math.Pow(LIEB, cpuLoad)) + (math.Pow(LIEB, (float64(node.TaskCount+1))/float64(max_jobs)) - math.Pow(LIEB, (float64(node.TaskCount))/float64(max_jobs)))
 
 		nodeScores[node.Name] = memCost + cpuCost
-
 	}
 
 	return nodeScores
