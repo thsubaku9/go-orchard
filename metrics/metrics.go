@@ -1,4 +1,4 @@
-package worker
+package metrics
 
 import (
 	"time"
@@ -10,9 +10,10 @@ import (
 )
 
 type CPUMetric struct {
-	TimeStat       cpu.TimesStat
-	PercentageUsed float64
+	TimeStat  cpu.TimesStat
+	RatioUsed float64
 }
+
 type Metrics struct {
 	Load   load.AvgStat
 	CPU    CPUMetric
@@ -20,10 +21,13 @@ type Metrics struct {
 	Memory mem.VirtualMemoryStat
 }
 
+func (s *Metrics) MemUsedKb() uint64 {
+	return s.Memory.Total - s.Memory.Available
+}
+
 func GetLoadMetrics() load.AvgStat {
 	res, _ := load.Avg()
 	return *res
-
 }
 
 func GetCPUMetrics() cpu.TimesStat {
@@ -59,7 +63,7 @@ func GetFullMetrics() Metrics {
 		Load:   GetLoadMetrics(),
 		Disk:   GetDiskMetrics(),
 		Memory: GetMemoryMetrics(),
-		CPU:    CPUMetric{TimeStat: cpuTimeStates, PercentageUsed: getCPUUsage(cpuTimeStates)},
+		CPU:    CPUMetric{TimeStat: cpuTimeStates, RatioUsed: getCPUUsage(cpuTimeStates)},
 	}
 }
 
