@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"orchard/metrics"
 	"orchard/task"
 	"sync/atomic"
 	"time"
@@ -20,7 +21,7 @@ type Worker struct {
 }
 
 func (w *Worker) CollectStats() {
-	metricChannel := DeliverPeriodicStats(time.Second*10, 5)
+	metricChannel := metrics.DeliverPeriodicStats(time.Second*10, 5)
 
 	for d := range metricChannel {
 		fmt.Println("Stats:: ", d)

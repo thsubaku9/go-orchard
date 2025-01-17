@@ -5,6 +5,7 @@ import (
 	"log"
 	"orchard/api"
 	"orchard/manager"
+	"orchard/scheduler"
 	"orchard/task"
 	"orchard/worker"
 	"os"
@@ -92,7 +93,7 @@ func create_task_config() task.Task {
 	}
 }
 
-func worker_main() {
+func worker_standalone_main() {
 	w := worker.Worker{
 		Name:  "Sample worker",
 		Queue: *queue.New(),
@@ -121,7 +122,7 @@ func worker_main() {
 	}
 }
 
-func worker_api_main() {
+func worker_api_spinup(addr string, port string) {
 	w := &worker.Worker{
 		Name:  "Sample worker",
 		Queue: *queue.New(),
@@ -130,24 +131,33 @@ func worker_api_main() {
 
 	worker_api := worker.HttpApiWorker{
 		HttpApi: api.HttpApi[worker.Worker]{
-			Address: "127.0.0.1",
-			Port:    "7812",
+			Address: addr,
+			Port:    port,
 			Ref:     w,
 		},
 	}
 
 	go w.RunTaskPeriodically()
 	go w.CollectStats()
+	go w.UpdateTasksPeriodically()
 	go worker_api.StartServer()
 }
 
 func main() {
 
 	set_docker_envars()
-	worker_api_main()
+	worker_api_spinup("127.0.0.1", "7812")
 
-	workers := []string{fmt.Sprintf("%s:%d", "127.0.0.1", 7812)}
-	m := manager.New(workers)
+	workers := []string{fmt.Sprintf("%s:%s", "127.0.0.1", "7812")}
+	m := manager.New(workers, &scheduler.RoundRobin{})
+
+	manager_api := manager.HttpApiManager{
+		HttpApi: api.HttpApi[manager.Manager]{
+			Address: "127.0.0.1",
+			Port:    "9300",
+			Ref:     m,
+		},
+	}
 
 	for i := 0; i < 1; i++ {
 		te := task.TaskEvent{
@@ -160,18 +170,8 @@ func main() {
 		m.SendWork()
 	}
 
-	go func() {
-		for {
-			fmt.Printf("[Manager] Updating tasks from %d workers\n", len(m.Workers))
-			m.UpdateTasks()
-			time.Sleep(15 * time.Second)
-		}
-	}()
+	go m.UpdateTasksPeriodically()
+	go m.DoHealthChecksPeriodically()
 
-	for {
-		for _, t := range m.TaskDb {
-			fmt.Printf("[Manager] Task: id: %s, state: %d\n", t.ID, t.State)
-			time.Sleep(15 * time.Second)
-		}
-	}
+	manager_api.StartServer()
 }

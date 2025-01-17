@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"orchard/api"
+	"orchard/metrics"
 	"orchard/task"
 	"time"
 
@@ -136,9 +137,9 @@ func (httpApiWorker *HttpApiWorker) GetTask(w http.ResponseWriter, r *http.Reque
 func (httpApiWorker *HttpApiWorker) GetStatsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(api.StandardResponse[Metrics]{
+	json.NewEncoder(w).Encode(api.StandardResponse[metrics.Metrics]{
 		HttpStatusCode: http.StatusOK,
-		Response:       GetFullMetrics(),
+		Response:       metrics.GetFullMetrics(),
 	})
 }
 
